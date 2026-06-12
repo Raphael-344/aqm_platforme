@@ -1,0 +1,32 @@
+{
+  "totalCommunes": 127383,
+  "rowsRH": 9171576,
+  "rowsRJ": 11464470,
+  "mbRH": 262.4,
+  "mbRJ": 273.3,
+  "mbStatic": 26.7,
+  "mbTotal": 562.5,
+  "batchSize": 50000,
+  "plan": [
+    {
+      "var": "DATABASE_URL",
+      "static": true,
+      "RH": {
+        "de": 1,
+        "a": 127383
+      },
+      "RJ": null,
+      "mb": 289.1
+    },
+    {
+      "var": "DATABASE_URL_2",
+      "static": false,
+      "RH": null,
+      "RJ": {
+        "de": 1,
+        "a": 127383
+      },
+      "mb": 273.3
+    }
+  ]
+}

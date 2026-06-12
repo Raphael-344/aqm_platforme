@@ -1,0 +1,70 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Pays {
+  id       Int       @id @default(autoincrement())
+  code     String    @unique
+  nom      String
+  drapeau  String
+  communes Commune[]
+}
+
+model Commune {
+  id         Int         @id @default(autoincrement())
+  nom        String
+  lat        Float
+  lng        Float
+  population Int?
+  paysId     Int
+  pays       Pays        @relation(fields: [paysId], references: [id])
+  dispositif Dispositif?
+}
+
+model Dispositif {
+  id           Int           @id @default(autoincrement())
+  code         String        @unique
+  communeId    Int           @unique
+  commune      Commune       @relation(fields: [communeId], references: [id])
+  actif        Boolean       @default(true)
+  installeAt   DateTime      @default(now())
+  relevesHeure ReleveHeure[]
+  relevesJour  ReleveJour[]
+}
+
+model ReleveHeure {
+  id           Int        @id @default(autoincrement())
+  dispositifId Int
+  dispositif   Dispositif @relation(fields: [dispositifId], references: [id])
+  timestamp    DateTime
+  pm25         Float
+  pm10         Float
+  no2          Float
+  o3           Float
+  co           Float
+  aqi          Int
+
+  @@index([dispositifId, timestamp])
+}
+
+model ReleveJour {
+  id           Int        @id @default(autoincrement())
+  dispositifId Int
+  dispositif   Dispositif @relation(fields: [dispositifId], references: [id])
+  date         DateTime   @db.Date
+  pm25Moy      Float
+  pm10Moy      Float
+  no2Moy       Float
+  o3Moy        Float
+  coMoy        Float
+  aqiMoy       Int
+  aqiMax       Int
+
+  @@index([dispositifId, date])
+  @@unique([dispositifId, date])
+}
