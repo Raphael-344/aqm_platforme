@@ -133,7 +133,7 @@ function detectCity(message: string): string | null {
   const m = message.match(
     /(?:à|dans|de|pour|pollution\s+(?:à|de|dans)|qualité\s+(?:de\s+l[''']?air\s+)?(?:à|de|dans)|taux\s+(?:de\s+pollution\s+)?(?:à|dans|de)|AQI\s+(?:de|à|dans))\s+([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ\s\-]{1,50}?)(?:\s*[?!.,]|$)/i
   );
-  if (m?.[1]?.trim().length > 2) return m[1].trim();
+  if (m?.[1] && m[1].trim().length > 2) return m[1].trim();
   return null;
 }
 
