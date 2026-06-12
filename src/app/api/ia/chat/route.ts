@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server';
+﻿﻿﻿import { NextRequest } from 'next/server';
 import { prisma1, prisma2, prisma3, prisma4, prisma13 } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
@@ -86,10 +86,10 @@ const TOP_PROPRES_SQL = `
 // ── Normalisation accent/tiret (JS) ──────────────────────────────────────
 function normalizeSearch(s: string): string {
   return s
-    .normalize(‘NFD’)
-    .replace(/[̀-ͯ]/g, ‘’) // supprime les diacritiques (accents)
-    .replace(/[-‘’`]/g, ‘ ‘) // tirets/apostrophes → espace
-    .replace(/\s+/g, ‘ ‘)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // supprime les diacritiques (accents)
+    .replace(/[-‘’`]/g, ' ') // tirets/apostrophes → espace
+    .replace(/\s+/g, ' ')
     .toLowerCase()
     .trim();
 }
