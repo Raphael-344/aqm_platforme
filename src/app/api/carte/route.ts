@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma1, prisma2, prisma3, prisma4, prisma13 } from '@/lib/db';
 
-export const revalidate = 300;
+export const dynamic = 'force-dynamic';
 
 type DeviceMeta = {
   dispositif_id: number;
