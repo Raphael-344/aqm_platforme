@@ -1,6 +1,6 @@
 # AQM Platform — Air Quality Monitoring
 
-Plateforme de monitoring de la qualité de l'air en temps réel à l'échelle européenne, développée pour le projet **NOSE × SMART_IO** : visualisation cartographique, alertes, graphiques historiques et assistant IA sur un réseau simulé de ~127 000 capteurs répartis dans 21 pays.
+Plateforme de monitoring de la qualité de l'air en temps réel à l'échelle européenne, réalisée dans le cadre de ma formation à CESI : visualisation cartographique, alertes, graphiques historiques et assistant IA sur un réseau simulé de ~127 000 capteurs répartis dans 21 pays.
 
 🌐 **Démo en ligne** : [aqm-platforme-v2.vercel.app](https://aqm-platforme-v2.vercel.app)
 
@@ -11,7 +11,6 @@ Plateforme de monitoring de la qualité de l'air en temps réel à l'échelle eu
 | Couche | Technologie |
 |---|---|
 | Frontend web | Next.js 14 (App Router), TypeScript, Tailwind CSS |
-| Mobile | Flutter 3.x |
 | Base de données | PostgreSQL (Neon.tech) — architecture multi-bases |
 | ORM | Prisma 5 |
 | IA | Groq API (chatbot) + prédiction AQI |
@@ -29,7 +28,6 @@ Plateforme de monitoring de la qualité de l'air en temps réel à l'échelle eu
 - **Dashboard** — KPIs réseau, suivi de production, statistiques globales
 - **Chatbot IA** — assistant conversationnel pour interroger et analyser les données
 - **Recherche** — recherche de communes et capteurs en temps réel
-- **Application mobile** — app Flutter avec thème sombre cyan/vert néon
 
 ---
 
@@ -50,7 +48,6 @@ Plateforme de monitoring de la qualité de l'air en temps réel à l'échelle eu
 ### Prérequis
 
 - Node.js 18+
-- Flutter 3.x (pour l'app mobile)
 - Comptes [Neon.tech](https://neon.tech) pour les bases PostgreSQL
 
 ### 1. Cloner le dépôt
@@ -111,33 +108,28 @@ npm run build
 ## Structure du projet
 
 ```
-aqm-platform/
-├── aqm-site/                   # Application Next.js
-│   ├── src/
-│   │   ├── app/
-│   │   │   ├── api/            # Routes API : /carte, /alertes, /graphiques,
-│   │   │   │                   #              /stats, /dashboard, /recherche,
-│   │   │   │                   #              /ia/chat, /ia/prediction, /commune/[id]
-│   │   │   ├── carte/
-│   │   │   ├── alertes/
-│   │   │   ├── graphiques/
-│   │   │   ├── dashboard/
-│   │   │   ├── ia/
-│   │   │   └── recherche/
-│   │   └── lib/
-│   │       └── db.ts           # Clients Prisma multi-bases
-│   └── prisma/
-│       └── schema.prisma       # Schéma : Pays, Commune, Dispositif, ReleveHeure, ReleveJour
-└── aqm-app/                    # Application Flutter mobile
-    └── lib/
-        ├── screens/
-        └── services/
+aqm-site/
+├── src/
+│   ├── app/
+│   │   ├── api/            # Routes API : /carte, /alertes, /graphiques,
+│   │   │                   #              /stats, /dashboard, /recherche,
+│   │   │                   #              /ia/chat, /ia/prediction, /commune/[id]
+│   │   ├── carte/
+│   │   ├── alertes/
+│   │   ├── graphiques/
+│   │   ├── dashboard/
+│   │   ├── ia/
+│   │   └── recherche/
+│   └── lib/
+│       └── db.ts           # Clients Prisma multi-bases
+└── prisma/
+    └── schema.prisma       # Schéma : Pays, Commune, Dispositif, ReleveHeure, ReleveJour
 ```
 
 ---
 
-## Équipe & contribution
+## Contribution
 
-Projet réalisé en équipe dans le cadre du partenariat **NOSE × SMART_IO**.
+Projet réalisé dans le cadre de ma formation à CESI.
 
-**Ma contribution technique principale** : conception et développement de l'architecture backend complète (schéma Prisma multi-bases, 9 API routes Next.js, pipeline de données sur ~20M d'enregistrements), intégration du chatbot IA, déploiement Vercel, et application mobile Flutter.
+**Contribution technique principale** : conception et développement de l'architecture backend complète (schéma Prisma multi-bases, 9 API routes Next.js, pipeline de données sur ~20M d'enregistrements), intégration du chatbot IA et déploiement Vercel.
