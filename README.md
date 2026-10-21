@@ -90,6 +90,10 @@ GROQ_API_KEY=...
 NEXT_PUBLIC_SITE_URL=https://aqm-platforme-v2.vercel.app
 ```
 
+#### Fond de carte (clé CARTO)
+
+Depuis septembre 2026, les fonds de carte [CARTO Basemaps](https://carto.com/basemaps/apikey) exigent une clé d'API (gratuite jusqu'à 5 M de requêtes par mois en usage non commercial). Renseigner `NEXT_PUBLIC_CARTO_API_KEY` dans `.env.local` (et dans les variables d'environnement Vercel). Sans clé, le site fonctionne mais les tuiles affichent un filigrane « API KEY REQUIRED ».
+
 ### 4. Lancer en développement
 
 ```bash
