@@ -30,7 +30,7 @@ const STACK = [
   { cat: 'Visualisation',   items: ['Deck.gl / Globe 3D', 'Recharts', 'Leaflet.js'],              col: '#a78bfa' },
   { cat: 'Backend / API',   items: ['Next.js API Routes', 'Prisma ORM', 'PostgreSQL Neon.tech'],   col: '#ffaa00' },
   { cat: 'IoT / Réseau',    items: ['Arduino MKRFox 1200', 'MAKESENSE©', 'SIGFOX 0G'],             col: '#00f5d4' },
-  { cat: 'Intelligence IA', items: ['Claude API (Anthropic)', 'claude-sonnet-4-6'],                col: '#ff7e00' },
+  { cat: 'Intelligence IA', items: ['Groq API', 'openai/gpt-oss-120b'],                col: '#ff7e00' },
   { cat: 'Mobile',          items: ['Flutter 3.x', 'fl_chart', 'flutter_map'],                    col: '#00ff88' },
   { cat: 'Déploiement',     items: ['Vercel', 'Neon.tech (×9 BDD)', 'GitHub'],                    col: '#38bdf8' },
 ];
@@ -170,7 +170,7 @@ export default function AboutPage() {
               '9 bases PostgreSQL Neon distribuées',
               'Relevés horaires + journaliers 90 jours',
               'Dashboard Next.js 14 + app Flutter',
-              'IA intégrée — Claude (Anthropic)',
+              'IA intégrée — LLM via Groq (GPT-OSS 120B)',
             ].map(item => (
               <li key={item} className="flex items-start gap-2 opacity-65">
                 <div className="w-1.5 h-1.5 rounded-full flex-shrink-0 mt-1.5" style={{ background: '#00ff88' }} />

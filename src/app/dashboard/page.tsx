@@ -223,7 +223,7 @@ export default function DashboardPage() {
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), 10_000);
     fetch('/api/stats', { signal: ctrl.signal })
-      .then(r => r.json())
+      .then(r => (r.ok ? r.json() : Promise.reject(r)))
       .then(setLive)
       .catch(() => setLive({ alertesCount: 0, actifsCount: 0, totalDispositifs: 0 }))
       .finally(() => { clearTimeout(t); setLiveLoading(false); });
@@ -264,7 +264,7 @@ export default function DashboardPage() {
       <motion.div {...fadeUp(0.05)} className="flex flex-wrap items-center gap-3 mb-8 p-4 rounded-xl"
         style={panelStyle()}>
         <span className="text-xs uppercase tracking-widest font-medium mr-1" style={{ color: C.faint }}>
-          Plateforme live ·
+          Plateforme · données simulées ·
         </span>
         <LiveChip loading={liveLoading} icon="🌍"
           value={live ? fmt(live.totalDispositifs) : '0'}

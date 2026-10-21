@@ -86,17 +86,24 @@ export default function AlertesPage() {
   const [alertes, setAlertes] = useState<Alerte[]>([]);
   const [historique, setHistorique] = useState<HistoriqueEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [erreur, setErreur] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<'aqi' | 'time'>('aqi');
 
   useEffect(() => {
     fetch('/api/alertes').then(r => r.json()).then(d => {
+      setErreur(d.error ?? null);
       setAlertes(d.alertes ?? []);
       setHistorique(d.historique ?? []);
       setLoading(false);
-    }).catch(() => setLoading(false));
+    }).catch(() => {
+      setErreur("Impossible de joindre l'API des alertes.");
+      setLoading(false);
+    });
 
     const id = setInterval(() => {
       fetch('/api/alertes').then(r => r.json()).then(d => {
+        setErreur(d.error ?? null);
+        if (d.error) return;
         setAlertes(d.alertes ?? []);
         // Ne met à jour que la barre d'aujourd'hui (isToday) pour éviter les re-renders inutiles
         setHistorique(prev => {
@@ -104,7 +111,7 @@ export default function AlertesPage() {
           if (!next) return prev;
           return next.map((entry, i) => entry.isToday ? entry : (prev[i] ?? entry));
         });
-      });
+      }).catch(() => setErreur("Impossible de joindre l'API des alertes."));
     }, 30000);
     return () => clearInterval(id);
   }, []);
@@ -121,10 +128,16 @@ export default function AlertesPage() {
       {/* Header */}
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
         <h1 className="font-orbitron text-3xl font-black mb-2" style={{ color: '#ff3366' }}>
-          ⚠ ALERTES TEMPS RÉEL
+          ⚠ ALERTES
         </h1>
-        <p className="text-sm opacity-50">Capteurs dépassant les seuils OMS — mise à jour toutes les 30s</p>
+        <p className="text-sm opacity-50">Capteurs dépassant les seuils OMS au dernier relevé — données simulées</p>
       </motion.div>
+
+      {erreur && (
+        <div className="glass p-4 rounded-xl mb-8 text-sm" style={{ color: '#ff3366', borderColor: 'rgba(255,51,102,0.4)' }}>
+          {erreur}
+        </div>
+      )}
 
       {/* KPI cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
@@ -145,7 +158,7 @@ export default function AlertesPage() {
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }}
         className="glass p-6 rounded-2xl mb-8">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="font-semibold text-sm uppercase tracking-wider opacity-70">Historique 30 jours</h2>
+          <h2 className="font-semibold text-sm uppercase tracking-wider opacity-70">Historique — 30 derniers jours de données</h2>
           <div className="flex items-center gap-4 text-xs font-mono opacity-50">
             <span><span className="inline-block w-2.5 h-2.5 rounded-sm mr-1" style={{ background: '#ff3366' }} />Critique (&gt;200)</span>
             <span><span className="inline-block w-2.5 h-2.5 rounded-sm mr-1" style={{ background: '#ff7e00' }} />Élevé (150–200)</span>

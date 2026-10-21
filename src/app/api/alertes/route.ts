@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma1, prisma2, prisma3, prisma4, prisma9, prisma10, prisma11, prisma12, prisma13 } from '@/lib/db';
+import { dernierReleveJour } from '@/lib/reference';
 
 export const revalidate = 30;
 
@@ -34,22 +35,23 @@ const LATEST_RH_SQL = `
   ORDER BY "dispositifId", timestamp DESC
 `;
 
-// Past 29 days from ReleveJour (stable data — does not include today)
+// 29 jours précédant le dernier jour de données (ReleveJour)
 const HISTORIQUE_RJ_SQL = `
   SELECT
     date::text AS date,
     COUNT(*) AS nb_alertes
   FROM "ReleveJour"
-  WHERE date >= CURRENT_DATE - INTERVAL '29 days'
-    AND date < CURRENT_DATE
+  WHERE date >= $1::date - INTERVAL '29 days'
+    AND date < $1::date
     AND "aqiMax" > 150
   GROUP BY date
   ORDER BY date ASC
 `;
 
-function buildHistorique(dateMap: Map<string, number>, todayCount: number) {
-  const todayDate = new Date();
-  todayDate.setHours(0, 0, 0, 0);
+// 30 jours se terminant au dernier jour de données ; le dernier jour = alertes en cours (ReleveHeure)
+function buildHistorique(dateMap: Map<string, number>, todayCount: number, dernierJour: Date) {
+  const todayDate = new Date(dernierJour);
+  todayDate.setUTCHours(0, 0, 0, 0);
   return Array.from({ length: 30 }, (_, i) => {
     const d = new Date(todayDate.getTime() - (29 - i) * 86400000);
     const key = d.toISOString().slice(0, 10);
@@ -64,7 +66,8 @@ function buildHistorique(dateMap: Map<string, number>, todayCount: number) {
 
 export async function GET() {
   try {
-    // Run ReleveHeure (alertes temps réel) and ReleveJour (historique 29 jours) en parallèle
+    // Dernier relevé de chaque capteur (ReleveHeure) et historique 29 jours (ReleveJour) en parallèle
+    const dernierJour = await dernierReleveJour();
     const [rhResults, rjResults] = await Promise.all([
       Promise.all([
         prisma1.$queryRawUnsafe<ReleveRow[]>(LATEST_RH_SQL),
@@ -74,12 +77,12 @@ export async function GET() {
         prisma13.$queryRawUnsafe<ReleveRow[]>(LATEST_RH_SQL),
       ]),
       Promise.all([
-        prisma3.$queryRawUnsafe<HistoriqueRow[]>(HISTORIQUE_RJ_SQL),
-        prisma9.$queryRawUnsafe<HistoriqueRow[]>(HISTORIQUE_RJ_SQL),
-        prisma10.$queryRawUnsafe<HistoriqueRow[]>(HISTORIQUE_RJ_SQL),
-        prisma11.$queryRawUnsafe<HistoriqueRow[]>(HISTORIQUE_RJ_SQL),
-        prisma12.$queryRawUnsafe<HistoriqueRow[]>(HISTORIQUE_RJ_SQL),
-        prisma13.$queryRawUnsafe<HistoriqueRow[]>(HISTORIQUE_RJ_SQL),
+        prisma3.$queryRawUnsafe<HistoriqueRow[]>(HISTORIQUE_RJ_SQL, dernierJour),
+        prisma9.$queryRawUnsafe<HistoriqueRow[]>(HISTORIQUE_RJ_SQL, dernierJour),
+        prisma10.$queryRawUnsafe<HistoriqueRow[]>(HISTORIQUE_RJ_SQL, dernierJour),
+        prisma11.$queryRawUnsafe<HistoriqueRow[]>(HISTORIQUE_RJ_SQL, dernierJour),
+        prisma12.$queryRawUnsafe<HistoriqueRow[]>(HISTORIQUE_RJ_SQL, dernierJour),
+        prisma13.$queryRawUnsafe<HistoriqueRow[]>(HISTORIQUE_RJ_SQL, dernierJour),
       ]),
     ]);
 
@@ -105,8 +108,8 @@ export async function GET() {
         dateMap.set(key, (dateMap.get(key) ?? 0) + Number(r.nb_alertes));
       }
     }
-    // Aujourd'hui = count depuis ReleveHeure (temps réel)
-    const historique = buildHistorique(dateMap, top.length);
+    // Dernier jour = alertes en cours d'après le dernier relevé de chaque capteur
+    const historique = buildHistorique(dateMap, top.length, dernierJour);
 
     if (top.length === 0) return NextResponse.json({ alertes: [], historique });
 
@@ -140,29 +143,11 @@ export async function GET() {
       .filter(Boolean);
 
     return NextResponse.json({ alertes, historique });
-  } catch {
-    const alertes = Array.from({ length: 40 }, (_, i) => ({
-      dispositif_id: i + 1,
-      code: `AQM-SIM-${String(i + 1).padStart(5, '0')}`,
-      commune_nom: ['Sofia', 'Zagreb', 'Milan', 'Turin', 'Cracovie', 'Varsovie', 'Łódź'][i % 7],
-      pays_nom: ['Bulgarie', 'Croatie', 'Italie', 'Pologne'][i % 4],
-      pays_code: ['BG', 'HR', 'IT', 'PL'][i % 4],
-      drapeau: ['🇧🇬', '🇭🇷', '🇮🇹', '🇵🇱'][i % 4],
-      lat: 42 + Math.random() * 12,
-      lng: 10 + Math.random() * 20,
-      aqi: 151 + Math.floor(Math.random() * 200),
-      pm25: 50 + Math.random() * 100,
-      no2: 80 + Math.random() * 120,
-      timestamp: new Date(Date.now() - Math.random() * 3600000).toISOString(),
-    }));
-    const historique = Array.from({ length: 30 }, (_, i) => {
-      const d = new Date(Date.now() - (29 - i) * 86400000);
-      return {
-        date: d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }),
-        count: 50 + Math.floor(Math.random() * 150),
-        isToday: i === 29,
-      };
-    });
-    return NextResponse.json({ alertes, historique });
+  } catch (err) {
+    console.error('Erreur /api/alertes :', err);
+    return NextResponse.json(
+      { error: "Données d'alertes indisponibles : la base de données ne répond pas." },
+      { status: 503 }
+    );
   }
 }

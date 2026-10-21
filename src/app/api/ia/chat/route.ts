@@ -1,5 +1,6 @@
 ﻿﻿﻿import { NextRequest } from 'next/server';
 import { prisma1, prisma2, prisma3, prisma4, prisma13 } from '@/lib/db';
+import { dernierReleveHeure } from '@/lib/reference';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,7 +16,7 @@ const AQI_STATS_SQL = `
   FROM (
     SELECT DISTINCT ON ("dispositifId") aqi
     FROM "ReleveHeure"
-    WHERE timestamp >= NOW() - INTERVAL '2 hours'
+    WHERE timestamp >= $1::timestamp - INTERVAL '2 hours'
     ORDER BY "dispositifId", timestamp DESC
   ) sub
 `;
@@ -25,7 +26,7 @@ const TOP_PAR_PAYS_SQL = `
   WITH derniers AS (
     SELECT DISTINCT ON ("dispositifId") "dispositifId", aqi
     FROM "ReleveHeure"
-    WHERE timestamp >= NOW() - INTERVAL '2 hours'
+    WHERE timestamp >= $1::timestamp - INTERVAL '2 hours'
     ORDER BY "dispositifId", timestamp DESC
   ),
   par_commune AS (
@@ -58,7 +59,7 @@ const TOP_POLLUEES_SQL = `
   FROM (
     SELECT DISTINCT ON ("dispositifId") "dispositifId", aqi
     FROM "ReleveHeure"
-    WHERE timestamp >= NOW() - INTERVAL '2 hours'
+    WHERE timestamp >= $1::timestamp - INTERVAL '2 hours'
     ORDER BY "dispositifId", timestamp DESC
   ) rh
   JOIN "Dispositif" d ON d.id = rh."dispositifId"
@@ -73,7 +74,7 @@ const TOP_PROPRES_SQL = `
   FROM (
     SELECT DISTINCT ON ("dispositifId") "dispositifId", aqi
     FROM "ReleveHeure"
-    WHERE timestamp >= NOW() - INTERVAL '2 hours'
+    WHERE timestamp >= $1::timestamp - INTERVAL '2 hours'
     ORDER BY "dispositifId", timestamp DESC
   ) rh
   JOIN "Dispositif" d ON d.id = rh."dispositifId"
@@ -111,7 +112,7 @@ function buildCitySQL(nom: string) {
     FROM (
       SELECT DISTINCT ON ("dispositifId") "dispositifId", aqi, pm25, no2
       FROM "ReleveHeure"
-      WHERE timestamp >= NOW() - INTERVAL '3 hours'
+      WHERE timestamp >= $1::timestamp - INTERVAL '3 hours'
       ORDER BY "dispositifId", timestamp DESC
     ) rh
     JOIN "Dispositif" d ON d.id = rh."dispositifId"
@@ -140,19 +141,21 @@ function detectCity(message: string): string | null {
 // ── Contexte DB ───────────────────────────────────────────────────────────
 async function getDbContext(cityHint: string | null) {
   try {
+    // Fenêtres calculées depuis le dernier relevé : le jeu de données simulé ne suit pas l'horloge
+    const ref = await dernierReleveHeure();
     const queries: Promise<unknown>[] = [
-      prisma1.$queryRawUnsafe<AqiStats[]>(AQI_STATS_SQL),
-      prisma2.$queryRawUnsafe<AqiStats[]>(AQI_STATS_SQL),
-      prisma3.$queryRawUnsafe<AqiStats[]>(AQI_STATS_SQL),
-      prisma4.$queryRawUnsafe<AqiStats[]>(AQI_STATS_SQL),
-      prisma13.$queryRawUnsafe<AqiStats[]>(AQI_STATS_SQL),
-      prisma1.$queryRawUnsafe<CityRow[]>(TOP_PAR_PAYS_SQL),
-      prisma1.$queryRawUnsafe<CityRow[]>(TOP_POLLUEES_SQL),
-      prisma1.$queryRawUnsafe<CityRow[]>(TOP_PROPRES_SQL),
+      prisma1.$queryRawUnsafe<AqiStats[]>(AQI_STATS_SQL, ref),
+      prisma2.$queryRawUnsafe<AqiStats[]>(AQI_STATS_SQL, ref),
+      prisma3.$queryRawUnsafe<AqiStats[]>(AQI_STATS_SQL, ref),
+      prisma4.$queryRawUnsafe<AqiStats[]>(AQI_STATS_SQL, ref),
+      prisma13.$queryRawUnsafe<AqiStats[]>(AQI_STATS_SQL, ref),
+      prisma1.$queryRawUnsafe<CityRow[]>(TOP_PAR_PAYS_SQL, ref),
+      prisma1.$queryRawUnsafe<CityRow[]>(TOP_POLLUEES_SQL, ref),
+      prisma1.$queryRawUnsafe<CityRow[]>(TOP_PROPRES_SQL, ref),
     ];
 
     if (cityHint) {
-      queries.push(prisma1.$queryRawUnsafe<CityDetail[]>(buildCitySQL(cityHint)));
+      queries.push(prisma1.$queryRawUnsafe<CityDetail[]>(buildCitySQL(cityHint), ref));
     }
 
     const results = await Promise.all(queries);
@@ -174,8 +177,8 @@ async function getDbContext(cityHint: string | null) {
     // Top/bottom global
     const fmt = (rows: CityRow[], fallback: string) =>
       rows.length > 0 ? rows.map(c => `${c.commune} (${c.pays}, AQI ${c.aqi_moyen})`).join(', ') : fallback;
-    const topPollueesList = fmt(polluees, 'Sofia (Bulgarie), Zagreb (Croatie), Milan (Italie)');
-    const topPropresList  = fmt(propres,  'Helsinki (Finlande), Tallinn (Estonie), Riga (Lettonie)');
+    const topPollueesList = fmt(polluees, 'données indisponibles');
+    const topPropresList  = fmt(propres,  'données indisponibles');
 
     // Classement par pays
     const byPays = new Map<string, CityRow[]>();
@@ -201,9 +204,9 @@ async function getDbContext(cityHint: string | null) {
     let donneesVille = '';
     if (cityHint && cityData.length > 0) {
       const v = cityData[0];
-      donneesVille = `\nDONNÉES TEMPS RÉEL POUR "${cityHint.toUpperCase()}" :
+      donneesVille = `\nDONNÉES AU DERNIER RELEVÉ POUR "${cityHint.toUpperCase()}" :
 - Commune trouvée : ${v.commune} (${v.pays})
-- AQI actuel : ${v.aqi}
+- AQI au dernier relevé : ${v.aqi}
 - PM2.5 : ${v.pm25} µg/m³
 - NO₂ : ${v.no2} µg/m³
 - Nombre de capteurs actifs : ${Number(v.nb_capteurs)}`;
@@ -214,7 +217,8 @@ async function getDbContext(cityHint: string | null) {
       donneesVille = `\nDONNÉES POUR "${cityHint}" : aucun capteur trouvé dans la zone couverte (peut-être hors zone euro ou orthographe différente).`;
     }
 
-    return { aqiMoyen, nbAlertes, topPollueesList, topPropresList, classementParPays, donneesVille };
+    const dateReference = ref.toLocaleString('fr-FR', { timeZone: 'UTC' }) + ' UTC';
+    return { aqiMoyen, nbAlertes, topPollueesList, topPropresList, classementParPays, donneesVille, dateReference };
   } catch (err) {
     console.error('DB context error:', err);
     return {
@@ -223,6 +227,7 @@ async function getDbContext(cityHint: string | null) {
       topPropresList:  'données temporairement indisponibles',
       classementParPays: 'données temporairement indisponibles',
       donneesVille: '',
+      dateReference: 'inconnue',
     };
   }
 }
@@ -241,8 +246,9 @@ export async function POST(req: NextRequest) {
   const cityHint = detectCity(message);
   const ctx = await getDbContext(cityHint);
 
-  const donneesDB = `- AQI moyen global : ${ctx.aqiMoyen}
-- Alertes actives (AQI > 150) : ${ctx.nbAlertes}
+  const donneesDB = `- Date du dernier relevé : ${ctx.dateReference}
+- AQI moyen global : ${ctx.aqiMoyen}
+- Alertes au dernier relevé (AQI > 150) : ${ctx.nbAlertes}
 - Top 3 villes les plus polluées (zone euro) : ${ctx.topPollueesList}
 - Top 3 villes les moins polluées (zone euro) : ${ctx.topPropresList}
 
@@ -329,13 +335,13 @@ GROUPE 7 :
 - MOSBAH Ilian, RIVES Pierre-Elyan, TROSZCZYNSKI Loris, KNIEFELD-LOINTIER Grégoire, GASPARIN Raphael
 - CPI (Cycle Préparatoire Ingénieur) CESI
 
-=== DONNÉES TEMPS RÉEL (injectées dynamiquement) ===
+=== DONNÉES DU RÉSEAU (jeu de données simulé, au dernier relevé disponible) ===
 ${donneesDB}
 
 === COMPORTEMENT ===
 - Réponds en français, de façon concise et professionnelle
 - Pour les questions techniques (Cp, droite de Henry, Takt Time...) explique clairement
-- Pour les questions sur les données, utilise les données temps réel ci-dessus
+- Pour les questions sur les données, utilise les données ci-dessus et précise qu'il s'agit de données simulées arrêtées au dernier relevé
 - Pour les questions générales sur la qualité de l'air ou l'environnement, réponds avec tes connaissances
 - Ne dis JAMAIS "je ne dispose pas de données" si la réponse est dans ce system prompt
 - Si une donnée n'est vraiment pas disponible, propose une alternative utile`;
@@ -355,8 +361,9 @@ ${donneesDB}
       'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
     },
     body: JSON.stringify({
-      model: 'llama-3.3-70b-versatile',
-      max_tokens: 1024,
+      model: 'openai/gpt-oss-120b',
+      reasoning_effort: 'low',
+      max_tokens: 2048,
       stream: true,
       messages: [
         { role: 'system', content: systemPrompt },

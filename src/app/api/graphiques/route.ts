@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma1, prisma2, prisma3, prisma4, prisma9, prisma10, prisma11, prisma12, prisma13 } from '@/lib/db';
+import { dernierReleveHeure, dernierReleveJour, JOUR_MS } from '@/lib/reference';
 
 export const revalidate = 300;
 
@@ -12,7 +13,7 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const type = searchParams.get('type') ?? 'pays';
 
-  // ── Évolution 90j : 21 pays, données ReleveJour uniquement ─────────────
+  // ── Évolution sur les 90 derniers jours de données : 21 pays, données ReleveJour uniquement ─────────────
   if (type === 'pays') {
     try {
       const paysIn = ALL_PAYS.map(p => `'${p}'`).join(',');
@@ -31,7 +32,7 @@ export async function GET(req: NextRequest) {
         deviceToPays.set(dispositif_id, pays_code);
       }
       const allIdsStr = deviceRows.map(r => r.dispositif_id).join(',');
-      const since = new Date(Date.now() - 90 * 86400_000);
+      const since = new Date((await dernierReleveJour()).getTime() - 90 * JOUR_MS);
 
       // 6 requêtes parallèles (une par DB RJ)
       const results = await Promise.all(
@@ -77,13 +78,13 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // ── Comparaison ville : 30j de ReleveJour pour un dispositif ───────────
+  // ── Comparaison ville : 30 derniers jours de ReleveJour pour un dispositif ───────────
   if (type === 'ville') {
     const dispositifId = parseInt(searchParams.get('dispositif_id') ?? '0', 10);
     if (!dispositifId || dispositifId <= 0) return NextResponse.json({ data: [] });
 
     try {
-      const since = new Date(Date.now() - 30 * 86400_000);
+      const since = new Date((await dernierReleveJour()).getTime() - 30 * JOUR_MS);
 
       // Le dispositif est dans exactement une des 6 DB RJ — on interroge toutes
       const results = await Promise.all(
@@ -119,7 +120,7 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // ── Heatmap 7j × 24h : données ReleveHeure réelles ────────────────────
+  // ── Heatmap 7 derniers jours de données × 24h : ReleveHeure ────────────────────
   if (type === 'heatmap') {
     const rawPays = searchParams.get('pays') ?? 'FR';
     const pays = PAYS_SET.has(rawPays) ? rawPays : 'FR';
@@ -134,6 +135,7 @@ export async function GET(req: NextRequest) {
       );
       if (deviceRows.length === 0) return NextResponse.json({ data: [] });
       const idsStr = deviceRows.map(r => r.dispositif_id).join(',');
+      const since = new Date((await dernierReleveHeure()).getTime() - 7 * JOUR_MS);
 
       // SUM + COUNT pour permettre la fusion correcte des 5 DB RH
       const results = await Promise.all(
@@ -144,10 +146,11 @@ export async function GET(req: NextRequest) {
                     SUM(aqi)::bigint as sum_aqi,
                     COUNT(*) as cnt
              FROM "ReleveHeure"
-             WHERE timestamp >= NOW() - INTERVAL '7 days'
+             WHERE timestamp >= $1
                AND "dispositifId" = ANY(ARRAY[${idsStr}]::int[])
              GROUP BY TO_CHAR(timestamp, 'YYYY-MM-DD'), EXTRACT(HOUR FROM timestamp)::int
-             ORDER BY 1, 2`
+             ORDER BY 1, 2`,
+            since
           )
         )
       );
