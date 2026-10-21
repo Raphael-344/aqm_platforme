@@ -1,6 +1,7 @@
 ﻿﻿﻿import { NextRequest } from 'next/server';
 import { prisma1, prisma2, prisma3, prisma4, prisma13 } from '@/lib/db';
 import { dernierReleveHeure } from '@/lib/reference';
+import { createSseParser } from '@/lib/sse';
 
 export const dynamic = 'force-dynamic';
 
@@ -384,23 +385,25 @@ ${donneesDB}
     async start(controller) {
       const reader = groqRes.body!.getReader();
       const decoder = new TextDecoder();
+      const encoder = new TextEncoder();
+      // Les lignes SSE coupées entre deux paquets sont reconstituées par le parseur
+      const parser = createSseParser((data) => {
+        try {
+          const parsed = JSON.parse(data);
+          const text = parsed.choices?.[0]?.delta?.content;
+          if (text) controller.enqueue(encoder.encode(text));
+        } catch { /* événement non JSON : ignoré */ }
+      });
       try {
-        while (true) {
+        while (!parser.done) {
           const { done, value } = await reader.read();
           if (done) break;
-          const chunk = decoder.decode(value, { stream: true });
-          for (const line of chunk.split('\n')) {
-            if (!line.startsWith('data: ')) continue;
-            const raw = line.slice(6).trim();
-            if (!raw || raw === '[DONE]') continue;
-            try {
-              const parsed = JSON.parse(raw);
-              const text = parsed.choices?.[0]?.delta?.content;
-              if (text) controller.enqueue(new TextEncoder().encode(text));
-            } catch { /* skip malformed lines */ }
-          }
+          parser.push(decoder.decode(value, { stream: true }));
         }
+        parser.push(decoder.decode());
+        parser.flush();
       } finally {
+        reader.cancel().catch(() => {});
         controller.close();
       }
     },
