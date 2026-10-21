@@ -217,7 +217,7 @@ export default function HomePage() {
           </div>
         </div>
         <div className="flex flex-wrap justify-center gap-3">
-          {['Next.js 14', 'TypeScript', 'Tailwind CSS', 'Leaflet.js', 'Recharts', 'D3.js', 'Framer Motion', 'Prisma', 'PostgreSQL Neon', 'Claude AI', 'SIGFOX', 'Arduino MKRFox'].map(tech => (
+          {['Next.js 14', 'TypeScript', 'Tailwind CSS', 'Leaflet.js', 'Recharts', 'D3.js', 'Framer Motion', 'Prisma', 'PostgreSQL Neon', 'Groq (GPT-OSS)', 'SIGFOX', 'Arduino MKRFox'].map(tech => (
             <span key={tech} className="px-3 py-1.5 rounded-full text-xs font-mono"
               style={{ background: 'rgba(0,245,212,0.06)', border: '1px solid rgba(0,245,212,0.15)', color: 'rgba(255,255,255,0.6)' }}>
               {tech}
