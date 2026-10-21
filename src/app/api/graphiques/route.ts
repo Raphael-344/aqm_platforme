@@ -27,26 +27,35 @@ export async function GET(req: NextRequest) {
       );
       if (deviceRows.length === 0) return NextResponse.json({ data: [] });
 
-      const deviceToPays = new Map<number, string>();
-      for (const { dispositif_id, pays_code } of deviceRows) {
-        deviceToPays.set(dispositif_id, pays_code);
+      // Les bases ReleveJour ne contiennent pas les pays : on leur transmet des plages
+      // d'identifiants contiguës par pays (calculées sur DB1) pour qu'elles agrègent
+      // elles-mêmes par jour et par pays, au lieu de renvoyer une ligne par capteur et par jour.
+      const tries = [...deviceRows].sort((a, b) => a.dispositif_id - b.dispositif_id);
+      const lo: number[] = [], hi: number[] = [], pays: string[] = [];
+      for (const { dispositif_id, pays_code } of tries) {
+        const n = pays.length - 1;
+        if (n >= 0 && pays[n] === pays_code && hi[n] === dispositif_id - 1) {
+          hi[n] = dispositif_id;
+        } else {
+          lo.push(dispositif_id); hi.push(dispositif_id); pays.push(pays_code);
+        }
       }
-      const allIdsStr = deviceRows.map(r => r.dispositif_id).join(',');
       const since = new Date((await dernierReleveJour()).getTime() - 90 * JOUR_MS);
 
-      // 6 requêtes parallèles (une par DB RJ)
+      // 6 requêtes parallèles (une par DB RJ), chacune ≤ 90 jours × 21 pays lignes
       const results = await Promise.all(
         RJ_CLIENTS.map(client =>
-          client.$queryRawUnsafe<Array<{ date: string; dispositif_id: number; sum_aqi: unknown; cnt: unknown }>>(
-            `SELECT TO_CHAR(date, 'YYYY-MM-DD') as date,
-                    "dispositifId" as dispositif_id,
-                    SUM("aqiMoy") as sum_aqi,
-                    COUNT(*) as cnt
-             FROM "ReleveJour"
-             WHERE date >= $1
-               AND "dispositifId" = ANY(ARRAY[${allIdsStr}]::int[])
-             GROUP BY date, "dispositifId"`,
-            since
+          client.$queryRawUnsafe<Array<{ date: string; pays_code: string; sum_aqi: unknown; cnt: unknown }>>(
+            `SELECT TO_CHAR(rj.date, 'YYYY-MM-DD') as date,
+                    m.pays as pays_code,
+                    SUM(rj."aqiMoy")::float8 as sum_aqi,
+                    COUNT(*)::int as cnt
+             FROM "ReleveJour" rj
+             JOIN unnest($2::int[], $3::int[], $4::text[]) AS m(lo, hi, pays)
+               ON rj."dispositifId" BETWEEN m.lo AND m.hi
+             WHERE rj.date >= $1
+             GROUP BY 1, 2`,
+            since, lo, hi, pays
           )
         )
       );
@@ -54,9 +63,7 @@ export async function GET(req: NextRequest) {
       const aggregated = new Map<string, { sum: number; cnt: number }>();
       for (const rows of results) {
         for (const row of rows) {
-          const pays_code = deviceToPays.get(Number(row.dispositif_id));
-          if (!pays_code) continue;
-          const key = `${row.date}|${pays_code}`;
+          const key = `${row.date}|${row.pays_code}`;
           const prev = aggregated.get(key) ?? { sum: 0, cnt: 0 };
           aggregated.set(key, {
             sum: prev.sum + Number(row.sum_aqi),
@@ -73,8 +80,12 @@ export async function GET(req: NextRequest) {
         .sort((a, b) => a.date.localeCompare(b.date));
 
       return NextResponse.json({ data });
-    } catch {
-      return NextResponse.json({ data: [] });
+    } catch (err) {
+      console.error('Erreur /api/graphiques?type=pays :', err);
+      return NextResponse.json(
+        { error: 'Évolution par pays indisponible : la base de données ne répond pas.', data: [] },
+        { status: 503 }
+      );
     }
   }
 

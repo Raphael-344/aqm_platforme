@@ -7,6 +7,7 @@ import {
   ResponsiveContainer, ReferenceLine,
 } from 'recharts';
 import { aqiColor } from '@/lib/utils';
+import ChatMarkdown from '@/components/ChatMarkdown';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -25,14 +26,6 @@ const SUGGESTIONS = [
   "Combien d'alertes sont actives ?",
   'Explique-moi comment fonctionne le capteur MAKESENSE',
 ];
-
-function renderLine(line: string) {
-  return line.split(/\*\*(.*?)\*\*/g).map((part, i) =>
-    i % 2 === 1
-      ? <strong key={i} style={{ color: '#00f5d4', fontWeight: 600 }}>{part}</strong>
-      : <span key={i}>{part}</span>
-  );
-}
 
 function ChatMessage({ msg }: { msg: Message }) {
   const isUser = msg.role === 'user';
@@ -69,18 +62,9 @@ function ChatMessage({ msg }: { msg: Message }) {
         }}
       >
         <div>
-          {msg.content.split('\n').map((line, i) => {
-            if (line === '') return <div key={i} className="h-2" />;
-            if (line.startsWith('- ') || line.startsWith('• ')) {
-              return (
-                <div key={i} className="flex gap-2 my-0.5">
-                  <span style={{ color: '#00f5d4', flexShrink: 0 }}>▸</span>
-                  <span>{renderLine(line.slice(2))}</span>
-                </div>
-              );
-            }
-            return <div key={i}>{renderLine(line)}</div>;
-          })}
+          {isUser
+            ? msg.content.split('\n').map((line, i) => <div key={i}>{line}</div>)
+            : <ChatMarkdown contenu={msg.content} />}
         </div>
         {msg.streaming && <span className="cursor-blink" />}
       </div>
@@ -183,9 +167,9 @@ export default function IaPage() {
 
       while (true) {
         const { done, value } = await reader.read();
-        if (done) break;
-        const chunk = decoder.decode(value, { stream: true });
-        setMessages(prev => {
+        // en fin de flux, decode() sans argument restitue un caractère multi-octets resté en tampon
+        const chunk = done ? decoder.decode() : decoder.decode(value, { stream: true });
+        if (chunk) setMessages(prev => {
           const updated = [...prev];
           const last = updated[updated.length - 1];
           if (last?.role === 'assistant') {
@@ -193,6 +177,7 @@ export default function IaPage() {
           }
           return updated;
         });
+        if (done) break;
       }
 
       setMessages(prev => {
