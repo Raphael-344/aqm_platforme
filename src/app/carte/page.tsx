@@ -54,13 +54,14 @@ export default function CartePage() {
   const [filterAlerte, setFilterAlerte] = useState(false);
   const [nightMode, setNightMode] = useState(false);
   const [loading, setLoading]   = useState(true);
+  const [erreur, setErreur]     = useState<string | null>(null);
 
   // Fetch points
   useEffect(() => {
     fetch('/api/carte')
       .then(r => r.json())
-      .then(d => { setPoints(d.points ?? []); setLoading(false); })
-      .catch(() => setLoading(false));
+      .then(d => { setPoints(d.points ?? []); setErreur(d.error ?? null); setLoading(false); })
+      .catch(() => { setErreur("Impossible de joindre l'API de la carte."); setLoading(false); });
   }, []);
 
   // Search debounce
@@ -271,8 +272,14 @@ export default function CartePage() {
         <div className="absolute top-4 right-4 flex items-center gap-2 glass px-3 py-2 rounded-xl z-[1000]">
           <div className="w-2 h-2 rounded-full animate-pulse"
             style={{ background: '#00ff88', boxShadow: '0 0 8px #00ff88' }} />
-          <span className="text-xs font-mono" style={{ color: '#00ff88' }}>SIGFOX LIVE</span>
+          <span className="text-xs font-mono" style={{ color: '#00ff88' }}>DONNÉES SIMULÉES</span>
         </div>
+
+        {erreur && (
+          <div className="absolute top-16 right-4 glass px-3 py-2 rounded-xl z-[1000] text-xs" style={{ color: '#ff3366' }}>
+            {erreur}
+          </div>
+        )}
 
         {/* AQI legend */}
         <div className="absolute bottom-4 left-4 glass p-4 rounded-xl z-[1000]">
@@ -321,20 +328,8 @@ export default function CartePage() {
               <div className="p-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.04)' }}>
                 <div className="text-xs opacity-50 mb-1">Dernière mesure</div>
                 <div className="font-mono text-xs" style={{ color: '#00f5d4' }}>
-                  {new Date(selected.timestamp).toLocaleTimeString('fr-FR')}
+                  {new Date(selected.timestamp).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}
                 </div>
-              </div>
-            </div>
-            <div className="mt-4">
-              <div className="text-xs opacity-40 mb-2 font-mono">AQI — 7 dernières valeurs</div>
-              <div className="flex items-end gap-1 h-10">
-                {Array.from({ length: 7 }, (_, i) => {
-                  const v = Math.max(10, selected.aqi + (Math.random() - 0.5) * 20);
-                  return (
-                    <div key={i} className="flex-1 rounded-t"
-                      style={{ height: `${(v / 200) * 100}%`, background: aqiColor(v), opacity: 0.7 + i * 0.04 }} />
-                  );
-                })}
               </div>
             </div>
           </motion.div>

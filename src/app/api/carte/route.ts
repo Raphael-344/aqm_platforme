@@ -77,22 +77,11 @@ export async function GET() {
       .filter(Boolean);
 
     return NextResponse.json({ points });
-  } catch {
-    const points = Array.from({ length: 500 }, (_, i) => ({
-      dispositif_id: i + 1,
-      code: `AQM-SIM-${String(i + 1).padStart(5, '0')}`,
-      commune_nom: `Ville ${i + 1}`,
-      pays_code: ['FR', 'DE', 'IT', 'ES', 'PL', 'BE', 'NL', 'PT'][i % 8],
-      pays_nom: ['France', 'Allemagne', 'Italie', 'Espagne', 'Pologne', 'Belgique', 'Pays-Bas', 'Portugal'][i % 8],
-      drapeau: ['🇫🇷', '🇩🇪', '🇮🇹', '🇪🇸', '🇵🇱', '🇧🇪', '🇳🇱', '🇵🇹'][i % 8],
-      lat: 40 + Math.random() * 20,
-      lng: -10 + Math.random() * 35,
-      aqi: Math.floor(20 + Math.random() * 200),
-      pm25: Math.random() * 50,
-      pm10: Math.random() * 80,
-      no2: Math.random() * 100,
-      timestamp: new Date().toISOString(),
-    }));
-    return NextResponse.json({ points });
+  } catch (err) {
+    console.error('Erreur /api/carte :', err);
+    return NextResponse.json(
+      { error: 'Données de la carte indisponibles : la base de données ne répond pas.', points: [] },
+      { status: 503 }
+    );
   }
 }

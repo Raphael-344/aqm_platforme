@@ -38,7 +38,7 @@ function SigfoxCounter({ total }: { total: number }) {
     <div className="glass p-6 rounded-2xl text-center relative overflow-hidden">
       <div className="absolute inset-0 animate-pulse-slow" style={{ background: 'radial-gradient(circle, rgba(0,245,212,0.05) 0%, transparent 70%)' }} />
       <div className="text-xs font-mono uppercase tracking-widest mb-2" style={{ color: 'rgba(0,245,212,0.6)' }}>
-        Transmissions SIGFOX reçues cette heure
+        Simulation · transmissions SIGFOX sur une heure
       </div>
       <div className="font-mono text-5xl font-bold" style={{ color: '#00f5d4', textShadow: '0 0 20px rgba(0,245,212,0.5)' }}>
         {new Intl.NumberFormat('fr-FR').format(count)}
@@ -46,19 +46,19 @@ function SigfoxCounter({ total }: { total: number }) {
       <div className="text-xs mt-2 opacity-40 font-mono">/ {new Intl.NumberFormat('fr-FR').format(total)} total</div>
       <div className="absolute bottom-3 right-3 flex items-center gap-1.5">
         <div className="w-2 h-2 rounded-full animate-pulse" style={{ background: '#00ff88' }} />
-        <span className="text-xs font-mono" style={{ color: '#00ff88' }}>LIVE</span>
+        <span className="text-xs font-mono" style={{ color: '#00ff88' }}>SIMULATION</span>
       </div>
     </div>
   );
 }
 
 const navCards = [
-  { href: '/carte', icon: '◉', title: 'Carte AQM', desc: '127 383 capteurs en temps réel sur la carte Europe', color: '#00f5d4' },
+  { href: '/carte', icon: '◉', title: 'Carte AQM', desc: '127 383 capteurs simulés sur la carte Europe', color: '#00f5d4' },
   { href: '/alertes', icon: '⚠', title: 'Alertes', desc: 'Dépassements de seuils OMS en cours', color: '#ff3366' },
   { href: '/graphiques', icon: '◈', title: 'Graphiques', desc: 'Évolution 90 jours, comparaisons, heatmap', color: '#00ff88' },
   { href: '/dashboard', icon: '◆', title: 'Dashboard CEO', desc: 'KPIs, planning production, ROI 5 ans', color: '#ffaa00' },
   { href: '/capabilite', icon: '◇', title: 'Capabilité', desc: 'Cp/Cpk presses MCH1 & MCH2, normalité', color: '#a78bfa' },
-  { href: '/ia', icon: '✦', title: 'IA & Prédictions', desc: 'Chatbot Claude + prédictions 24h par ville', color: '#00f5d4' },
+  { href: '/ia', icon: '✦', title: 'IA & Prédictions', desc: 'Chatbot IA (Groq) + prévisions 24h par ville', color: '#00f5d4' },
   { href: '/recherche', icon: '⊕', title: 'Recherche', desc: 'Trouver une commune dans la zone euro', color: '#00ff88' },
   { href: '/about', icon: '◎', title: 'À propos', desc: 'Architecture, équipe, contexte NOSE × SMART_IO', color: '#94a3b8' },
 ];
@@ -73,7 +73,7 @@ export default function HomePage() {
 
   useEffect(() => {
     const t = setTimeout(() => setStarted(true), 400);
-    fetch('/api/stats').then(r => r.json()).then(d => setStats(d)).catch(() => {});
+    fetch('/api/stats').then(r => (r.ok ? r.json() : Promise.reject(r))).then(d => setStats(d)).catch(() => {});
 
     const ac = new AbortController();
     const tid = setTimeout(() => ac.abort(), 30000);
@@ -115,7 +115,7 @@ export default function HomePage() {
           <motion.p initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, delay: 0.3 }}
             className="text-lg md:text-xl mb-12 max-w-2xl mx-auto leading-relaxed"
             style={{ color: 'rgba(255,255,255,0.6)' }}>
-            Monitoring en temps réel de la qualité de l'air à travers{' '}
+            Monitoring de la qualité de l'air (données simulées) à travers{' '}
             <span style={{ color: '#00f5d4' }}>21 pays</span> de la zone euro.<br />
             Réseau de{' '}
             <span style={{ color: '#00ff88', fontFamily: 'Space Mono' }}>{new Intl.NumberFormat('fr-FR').format(stats.totalDispositifs)}</span>{' '}

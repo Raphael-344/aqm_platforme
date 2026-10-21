@@ -123,7 +123,7 @@ export default function IaPage() {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'assistant',
-      content: `Bonjour ! Je suis **AQM Assistant**, l'intelligence artificielle de la plateforme SMART_IO × NOSE.\n\nJe surveille en temps réel **127 383 capteurs** déployés dans 21 pays de la zone euro, avec des données mises à jour à chaque heure via le réseau SIGFOX.\n\nPosez-moi n'importe quelle question sur la qualité de l'air, les alertes, les capteurs ou le projet.`,
+      content: `Bonjour ! Je suis **AQM Assistant**, l'intelligence artificielle de la plateforme SMART_IO × NOSE.\n\nJ'analyse les données simulées de **127 383 capteurs** répartis dans 21 pays de la zone euro (relevés horaires jusqu'au dernier relevé disponible).\n\nPosez-moi n'importe quelle question sur la qualité de l'air, les alertes, les capteurs ou le projet.`,
     },
   ]);
   const [input, setInput] = useState('');
@@ -131,6 +131,7 @@ export default function IaPage() {
   const [liveStats, setLiveStats] = useState<LiveStats | null>(null);
   const [predCity, setPredCity] = useState('');
   const [predLoading, setPredLoading] = useState(false);
+  const [predErreur, setPredErreur] = useState<string | null>(null);
   const [predData, setPredData] = useState<{
     commune: string; pays: string;
     historique: Array<{ timestamp: string; aqi: number; predicted: boolean }>;
@@ -141,7 +142,7 @@ export default function IaPage() {
 
   useEffect(() => {
     fetch('/api/stats')
-      .then(r => r.json())
+      .then(r => (r.ok ? r.json() : Promise.reject(r)))
       .then(d => setLiveStats(d))
       .catch(() => {});
   }, []);
@@ -211,15 +212,23 @@ export default function IaPage() {
   const fetchPrediction = async () => {
     if (!predCity.trim()) return;
     setPredLoading(true);
+    setPredErreur(null);
     try {
       const res = await fetch('/api/ia/prediction', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ville: predCity }),
       });
-      setPredData(await res.json());
+      const data = await res.json();
+      if (!res.ok) {
+        setPredData(null);
+        setPredErreur(data.error ?? 'Prédiction indisponible.');
+      } else {
+        setPredData(data);
+      }
     } catch {
       setPredData(null);
+      setPredErreur("Impossible de joindre l'API de prédiction.");
     } finally {
       setPredLoading(false);
     }
@@ -238,7 +247,7 @@ export default function IaPage() {
           style={{ background: 'rgba(0,245,212,0.08)', border: '1px solid rgba(0,245,212,0.2)', color: '#00f5d4' }}
         >
           <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-          LLaMA 3.3 · Groq (gratuit)
+          GPT-OSS 120B · Groq
         </div>
       </motion.div>
 
@@ -276,7 +285,7 @@ export default function IaPage() {
             >
               <div className="flex items-center gap-2 mb-3">
                 <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: '#00ff88' }} />
-                <span className="text-[10px] font-mono uppercase tracking-widest opacity-40">Données live</span>
+                <span className="text-[10px] font-mono uppercase tracking-widest opacity-40">Données simulées</span>
               </div>
               {liveStats ? (
                 <div className="space-y-3">
@@ -299,7 +308,7 @@ export default function IaPage() {
                     <div>
                       <div className="text-[10px] opacity-40 mb-0.5">Dernier relevé</div>
                       <div className="text-[10px] font-mono opacity-50">
-                        {new Date(liveStats.dernierReleve).toLocaleTimeString('fr-FR')}
+                        {new Date(liveStats.dernierReleve).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}
                       </div>
                     </div>
                   )}
@@ -346,8 +355,8 @@ export default function IaPage() {
               style={{ background: 'rgba(0,245,212,0.04)', border: '1px solid rgba(0,245,212,0.08)' }}
             >
               <div className="text-[9px] opacity-30 uppercase tracking-widest mb-1">Propulsé par</div>
-              <div className="text-xs font-semibold" style={{ color: '#00f5d4' }}>Groq · LLaMA 3.3 70B</div>
-              <div className="text-[9px] opacity-25 mt-0.5">+ données temps réel DB</div>
+              <div className="text-xs font-semibold" style={{ color: '#00f5d4' }}>Groq · GPT-OSS 120B</div>
+              <div className="text-[9px] opacity-25 mt-0.5">+ données simulées de la base</div>
             </motion.div>
           </div>
 
@@ -433,7 +442,7 @@ export default function IaPage() {
                 </button>
               </div>
               <div className="mt-2 text-[10px] opacity-20">
-                Contexte DB temps réel · Historique de conversation complet · Streaming activé
+                Contexte : données simulées de la base · Historique de conversation complet · Streaming activé
               </div>
             </div>
           </motion.div>
@@ -481,6 +490,10 @@ export default function IaPage() {
               ))}
             </div>
 
+            {predErreur && (
+              <p className="text-sm mb-4" style={{ color: '#ff3366' }}>{predErreur}</p>
+            )}
+
             {predData && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
                 <div className="flex items-center gap-3 mb-4">
@@ -500,7 +513,7 @@ export default function IaPage() {
                 <PredictionChart data={[...predData.historique, ...predData.prediction]} />
                 <div className="mt-4 grid grid-cols-3 gap-4">
                   <div className="p-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.04)' }}>
-                    <div className="text-xs opacity-40 mb-1">AQI actuel</div>
+                    <div className="text-xs opacity-40 mb-1">AQI au dernier relevé</div>
                     <div className="font-mono font-bold"
                       style={{ color: aqiColor(predData.historique[predData.historique.length - 1]?.aqi ?? 50) }}>
                       {predData.historique[predData.historique.length - 1]?.aqi ?? '—'}

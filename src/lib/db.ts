@@ -23,31 +23,38 @@ function withConnectionLimit(url: string | undefined): string | undefined {
   return `${url}${sep}connection_limit=1&connection_timeout=60&pool_timeout=60&connect_timeout=60`;
 }
 
-function makeClient(envUrl: string | undefined) {
+// Sans URL, Prisma refuse d'instancier le client, ce qui casse `next build` hors Vercel.
+// Une URL injoignable explicite permet de builder sans base : les requêtes échouent
+// alors à l'exécution (les routes API renvoient une erreur 503) au lieu de bloquer le build.
+function urlOuManquante(envUrl: string | undefined, nomVariable: string): string {
+  return envUrl ?? `postgresql://variable-manquante@127.0.0.1:1/${nomVariable}`;
+}
+
+function makeClient(envUrl: string | undefined, nomVariable: string) {
   return new PrismaClient({
-    datasources: { db: { url: withConnectionLimit(envUrl) } },
+    datasources: { db: { url: withConnectionLimit(urlOuManquante(envUrl, nomVariable)) } },
     log: [...logLevel],
   });
 }
 
 // DB1: Pays + Commune + Dispositif + ReleveHeure 001-063
-export const prisma1 = g.prisma1 ?? makeClient(process.env.DATABASE_URL);
+export const prisma1 = g.prisma1 ?? makeClient(process.env.DATABASE_URL, 'DATABASE_URL');
 // DB2: ReleveHeure 064-125  (DB2 at ~512 MB after 62 files)
-export const prisma2 = g.prisma2 ?? makeClient(process.env.DATABASE_URL_2);
+export const prisma2 = g.prisma2 ?? makeClient(process.env.DATABASE_URL_2, 'DATABASE_URL_2');
 // DB3: ReleveHeure 144-184 + ReleveJour 001-021  (saturé ~512 MB)
-export const prisma3 = g.prisma3 ?? makeClient(process.env.DATABASE_URL_3);
+export const prisma3 = g.prisma3 ?? makeClient(process.env.DATABASE_URL_3, 'DATABASE_URL_3');
 // DB4: ReleveHeure 126-130
-export const prisma4 = g.prisma4 ?? makeClient(process.env.DATABASE_URL_4);
+export const prisma4 = g.prisma4 ?? makeClient(process.env.DATABASE_URL_4, 'DATABASE_URL_4');
 // DB9: ReleveJour 022-083  (overflow DB3; saturé 512 MB après 62 fichiers)
-export const prisma9 = g.prisma9 ?? makeClient(process.env.DATABASE_URL_9);
+export const prisma9 = g.prisma9 ?? makeClient(process.env.DATABASE_URL_9, 'DATABASE_URL_9');
 // DB10: ReleveJour 113-163
-export const prisma10 = g.prisma10 ?? makeClient(process.env.DATABASE_URL_10);
+export const prisma10 = g.prisma10 ?? makeClient(process.env.DATABASE_URL_10, 'DATABASE_URL_10');
 // DB11: ReleveJour 164-214
-export const prisma11 = g.prisma11 ?? makeClient(process.env.DATABASE_URL_11);
+export const prisma11 = g.prisma11 ?? makeClient(process.env.DATABASE_URL_11, 'DATABASE_URL_11');
 // DB12: ReleveJour 215-230
-export const prisma12 = g.prisma12 ?? makeClient(process.env.DATABASE_URL_12);
+export const prisma12 = g.prisma12 ?? makeClient(process.env.DATABASE_URL_12, 'DATABASE_URL_12');
 // DB13: ReleveHeure 131-143 + ReleveJour 084-112 (overflow DB9)
-export const prisma13 = g.prisma13 ?? makeClient(process.env.DATABASE_URL_13);
+export const prisma13 = g.prisma13 ?? makeClient(process.env.DATABASE_URL_13, 'DATABASE_URL_13');
 
 if (dev) {
   g.prisma1 = prisma1;
